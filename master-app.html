@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rosewood Cleaning – Pricing Calculator</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <style>
+    :root { --rose:#9A5E5C; --beige:#F7F3F0; --tan:#E7CABF; --sage:#C1B0A6; --charcoal:#272C2B; }
+    body        { background:var(--beige); font-family:Inter,Helvetica,Arial,sans-serif; }
+    .header     { background:var(--rose);}  
+    .card       { background:#fff;border-radius:.75rem;box-shadow:0 3px 6px rgba(0,0,0,.06);}  
+    .label      { background:var(--tan);}  
+    .summary-label{ background:var(--sage);} 
+    .price      { font-weight:600 }
+    .secret     { display:none; }
+    .show-secret .secret{ display:table-row; }
+    /* cost table pretties */
+    .cost-table { width:100%; table-layout:fixed; border-collapse:collapse; font-size:.875rem; }
+    .cost-table td{ padding:6px 8px; border-bottom:1px solid #e5e7eb; }
+    .cost-head  td{ font-weight:600; background:var(--rose); color:#fff; border:none; }
+    .cost-label { color:var(--charcoal); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-4">
+  <div class="w-full max-w-5xl space-y-6">
+    <!-- header -->
+    <header class="header w-full py-4 rounded-lg text-center"><h1 class="text-2xl md:text-3xl font-bold text-white">Rosewood Cleaning – Pricing Calculator</h1></header>
+
+    <!-- Job details -->
+    <section class="card p-6">
+      <h2 class="text-lg font-bold mb-4 text-charcoal">Job Details</h2>
+      <div class="grid gap-4 md:grid-cols-2">
+        <label class="flex flex-col"><span class="label px-2 py-1 text-sm rounded-t">Square Footage</span><input id="sqft" type="number" min="0" value="1000" class="p-3 border rounded-b outline-none"></label>
+        <label class="flex flex-col"><span class="label px-2 py-1 text-sm rounded-t">Travel Hours</span><input id="travel" type="number" min="0" step="0.25" value="1" class="p-3 border rounded-b outline-none"></label>
+        <label class="flex flex-col"><span class="label px-2 py-1 text-sm rounded-t">Crew Size</span><input id="crew" type="number" min="1" max="2" value="1" class="p-3 border rounded-b outline-none"></label>
+        <label class="flex flex-col"><span class="label px-2 py-1 text-sm rounded-t">Frequency</span><select id="freq" class="p-3 border rounded-b outline-none"><option>OneTime</option><option>Weekly</option><option>Bi-Weekly</option><option>Monthly</option><option>Quarterly</option></select></label>
+      </div>
+    </section>
+
+    <!-- Cost breakdown -->
+    <section class="card p-6">
+      <h2 class="text-lg font-bold mb-4 text-charcoal">Cost Breakdown</h2>
+      <table class="cost-table" id="breakdownBody"></table>
+      
+    </section>
+
+    <!-- Price summary -->
+    <section class="card p-6">
+      <h2 class="text-lg font-bold mb-4 text-rose-800">Price Summary</h2>
+      <div class="overflow-x-auto"><table class="min-w-full text-center border" id="priceTable"></table></div>
+    </section>
+  </div>
+
+<script>
+// ----- CONSTANTS ------
+const CLEANER_RATE=20,ESS_RATE=400,DEEP_RATE=225,SUP_ESS=5,SUP_DEEP=15,ADDON_PRICE=15,FLOOR_ESS=149,FLOOR_DEEP=219,CONV_MULT=1.15,AD_COST=30,PROFIT_SHARE=.35,DENOM=1-PROFIT_SHARE,DISCOUNTS={OneTime:1,Weekly:.9,'Bi-Weekly':.92,Monthly:.95,Quarterly:.975};
+const round9=n=>{const d=Math.floor(n/10)*10+9,u=Math.ceil(n/10)*10-1;return n-d<=u-n?d:u};
+// Cached els
+const sqftEl=document.getElementById('sqft'),travelEl=document.getElementById('travel'),crewEl=document.getElementById('crew'),freqEl=document.getElementById('freq');
+const breakdownBody=document.getElementById('breakdownBody'),priceTable=document.getElementById('priceTable');
+
+function calcPrices(){
+  const sqft=+sqftEl.value||0, travel=+travelEl.value||0, crew=+crewEl.value||1, freq=freqEl.value, freqMult=DISCOUNTS[freq];
+  const travCost = travel>0?20+Math.max(travel-1,0)*10:0;
+  // cost blocks
+  const hrsE=sqft/ESS_RATE, labE=hrsE*CLEANER_RATE, directE=labE+SUP_ESS+travCost+AD_COST;
+  let baseE=round9(Math.max(directE/DENOM,FLOOR_ESS)); if(crew>1) baseE=round9(baseE*CONV_MULT);
+  const hrsD=sqft/DEEP_RATE, labD=hrsD*CLEANER_RATE, directD=labD+SUP_DEEP+travCost+AD_COST;
+  let baseD=round9(Math.max(directD/DENOM,FLOOR_DEEP)); if(crew>1) baseD=round9(baseD*CONV_MULT);
+  // Build breakdown rows
+  breakdownBody.innerHTML=`
+    <tr class="cost-head"><td>Item</td><td>Value</td></tr>
+    <tr><td class="cost-label">Direct Cost</td><td>$${directE.toFixed(2)} (E) / $${directD.toFixed(2)} (D)</td></tr>
+    <tr class="secret"><td class="cost-label">Labor Hours</td><td>${hrsE.toFixed(2)} (E) / ${hrsD.toFixed(2)} (D)</td></tr>
+    <tr class="secret"><td class="cost-label">Labor Cost</td><td>$${labE.toFixed(2)} (E) / $${labD.toFixed(2)} (D)</td></tr>
+    <tr class="secret"><td class="cost-label">Supplies</td><td>$${SUP_ESS} (E) / $${SUP_DEEP} (D)</td></tr>
+    <tr class="secret"><td class="cost-label">Travel</td><td>$${travCost.toFixed(2)}</td></tr>
+    <tr class="secret"><td class="cost-label">Advertising</td><td>$${AD_COST}</td></tr>
+    <tr class="secret"><td class="cost-label">Base Price Pre‑Round</td><td>$${(directE/DENOM).toFixed(2)} (E) / $${(directD/DENOM).toFixed(2)}</td></tr>`;
+
+  // Build price table
+  priceTable.innerHTML='<thead><tr class="bg-rose-100"><th class="px-3 py-2 border">Service</th><th class="px-3 py-2 border">Price</th><th class="px-3 py-2 border">My Take $</th><th class="px-3 py-2 border secret">Owner Net</th></tr></thead><tbody></tbody>';
+  const tbody=priceTable.querySelector('tbody');
+  for(let add=0;add<=3;add++){
+    const label=add?`Essential +${add} add‑on${add>1?'s':''}`:'Essential (0 add‑ons)';
+    let price=round9(baseE+add*ADDON_PRICE); price=round9(price*freqMult);
+    const profit=price-directE; const aPay=Math.round(profit*2/3); const owner=Math.round(profit-aPay);
+    tbody.insertAdjacentHTML('beforeend',`<tr><td class="border px-3 py-2 text-left">${label}</td><td class="border px-3 py-2 price">$${price}</td><td class="border px-3 py-2">$${aPay}</td><td class="border px-3 py-2 secret">$${owner}</td></tr>`);
+  }
+  const dPrice=round9(baseD*freqMult); const dProfit=dPrice-directD; const dPay=Math.round(dProfit*2/3); const dOwner=Math.round(dProfit-dPay);
+  tbody.insertAdjacentHTML('beforeend',`<tr class="summary-label font-semibold"><td class="border px-3 py-2 text-left">Signature Deep Detail</td><td class="border px-3 py-2">$${dPrice}</td><td class="border px-3 py-2">$${dPay}</td><td class="border px-3 py-2 secret">$${dOwner}</td></tr>`);
+}
+['input','change'].forEach(ev=>{[sqftEl,travelEl,crewEl,freqEl].forEach(el=>el.addEventListener(ev,calcPrices))});
+document.addEventListener('keydown',e=>{if(e.metaKey&&e.key==='/')document.body.classList.toggle('show-secret')});
+calcPrices();
+</script>
+</body>
+</html>
